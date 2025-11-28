@@ -13,6 +13,13 @@ from datetime import datetime, timedelta
 import rasterio
 from rasterio.windows import Window
 
+# Optional: streamlit-image-coordinates for click-to-position
+try:
+    from streamlit_image_coordinates import streamlit_image_coordinates  # type: ignore
+    HAS_IMAGE_COORDS = True
+except ImportError:
+    HAS_IMAGE_COORDS = False
+
 # Add scripts to path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '../scripts'))
 from sentinel_search import search_sentinel2_images, get_rgb_image_url, get_item_metadata  # type: ignore
@@ -163,38 +170,55 @@ if 'selected_item' in st.session_state and st.session_state['selected_item']:
     # Display image with 64x64 box
     if 'sentinel_image' in st.session_state:
         img = st.session_state['sentinel_image'].copy()
-        box_x, box_y = st.session_state.get('box_position', [224, 224])
+        box_x, box_y = st.session_state.get('box_position', [480, 480])
         
-        # Draw 64x64 box
+        # Draw 64x64 box with crosshair in center
         draw = ImageDraw.Draw(img)
         draw.rectangle([box_x, box_y, box_x + 64, box_y + 64], outline="red", width=3)
+        # Draw crosshair at box center
+        center_x, center_y = box_x + 32, box_y + 32
+        draw.line([(center_x - 10, center_y), (center_x + 10, center_y)], fill="red", width=2)
+        draw.line([(center_x, center_y - 10), (center_x, center_y + 10)], fill="red", width=2)
         
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            st.image(img, caption="Sentinel-2 Image (1024x1024 at native 10m resolution) - Red box shows 64x64 prediction area", use_column_width=True)
+            st.image(img, caption="Sentinel-2 Image (1024x1024 at native 10m resolution) - Click to move red box", use_column_width=True)
             
-            # Controls for moving the box
-            st.write("**Move the 64x64 box:**")
-            col_a, col_b, col_c = st.columns(3)
-            with col_a:
-                if st.button("⬅️ Left"):
-                    st.session_state['box_position'][0] = max(0, box_x - 32)
-                    st.rerun()
-            with col_b:
-                if st.button("⬆️ Up"):
-                    st.session_state['box_position'][1] = max(0, box_y - 32)
-                    st.rerun()
-            with col_c:
-                if st.button("➡️ Right"):
-                    st.session_state['box_position'][0] = min(960, box_x + 32)
-                    st.rerun()
+            # Interactive box positioning
+            st.write("**Position the 64x64 box:**")
+            st.write("💡 Click on the image above to move the box, or use precise controls below")
             
-            col_d, col_e, col_f = st.columns(3)
-            with col_e:
-                if st.button("⬇️ Down"):
-                    st.session_state['box_position'][1] = min(960, box_y + 32)
+            # Slider controls for precise positioning
+            col_slider1, col_slider2 = st.columns(2)
+            with col_slider1:
+                new_x = st.slider("X Position", 0, 960, box_x, key="x_slider")
+            with col_slider2:
+                new_y = st.slider("Y Position", 0, 960, box_y, key="y_slider")
+            
+            # Update position if sliders changed
+            if new_x != box_x or new_y != box_y:
+                st.session_state['box_position'] = [new_x, new_y]
+                st.rerun()
+            
+            # Click to position (if streamlit-image-coordinates is available)
+            if HAS_IMAGE_COORDS:
+                # Get click coordinates
+                coords = streamlit_image_coordinates(img, key="image_click")
+                
+                if coords is not None:
+                    # Center the box on the clicked position
+                    click_x = coords["x"]
+                    click_y = coords["y"]
+                    
+                    # Adjust for box centering (subtract half box size)
+                    new_box_x = max(0, min(960, click_x - 32))
+                    new_box_y = max(0, min(960, click_y - 32))
+                    
+                    st.session_state['box_position'] = [new_box_x, new_box_y]
                     st.rerun()
+            else:
+                st.info("💡 Install `streamlit-image-coordinates` for click-to-position: `pip install streamlit-image-coordinates`")
         
         with col2:
             st.subheader("Prediction")
