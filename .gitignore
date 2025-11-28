@@ -1,0 +1,12 @@
+data/
+models/
+experiments/
+visualization/
+__pycache__/
+*.pyc
+*.pyo
+*.db
+*.sqlite
+.env
+.DS_Store
+venv/
