@@ -1,7 +1,6 @@
 data/
 models/
 experiments/
-visualization/
 __pycache__/
 *.pyc
 *.pyo
