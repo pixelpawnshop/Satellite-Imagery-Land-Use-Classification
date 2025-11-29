@@ -1,5 +1,4 @@
 data/
-models/
 experiments/
 __pycache__/
 *.pyc

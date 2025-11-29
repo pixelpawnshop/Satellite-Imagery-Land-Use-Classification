@@ -1,0 +1,15 @@
+services:
+  fastapi:
+    build:
+      context: .
+      dockerfile: ./serving/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models
+      - ./reports:/app/reports
+      - ./scripts:/app/scripts
+      - ./visualization:/app/visualization
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
