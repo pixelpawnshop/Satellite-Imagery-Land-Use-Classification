@@ -156,10 +156,10 @@ async def load_sentinel(request: LoadImageRequest):
             best_mean = 0
             
             for row_center, col_center in search_positions:
-                row_off = max(0, min(height - 1024, row_center - 512))
-                col_off = max(0, min(width - 1024, col_center - 512))
-                window_height = min(1024, height - row_off)
-                window_width = min(1024, width - col_off)
+                row_off = max(0, min(height - 900, row_center - 450))
+                col_off = max(0, min(width - 1600, col_center - 800))
+                window_height = min(900, height - row_off)
+                window_width = min(1600, width - col_off)
                 
                 test_window = Window(col_off + 256, row_off + 256, min(64, window_width - 256), min(64, window_height - 256))
                 test_data = src.read(1, window=test_window)

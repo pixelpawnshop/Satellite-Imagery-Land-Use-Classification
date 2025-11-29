@@ -30,24 +30,29 @@
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 30px;
+            padding: 15px 30px;
             text-align: center;
         }
         
         .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
+            font-size: 1.8em;
+            margin-bottom: 5px;
         }
         
         .header p {
-            font-size: 1.1em;
+            font-size: 0.95em;
             opacity: 0.9;
         }
         
         .content {
             display: grid;
             grid-template-columns: 350px 1fr;
-            min-height: calc(100vh - 200px);
+            height: calc(100vh - 100px);
+            position: relative;
+        }
+        
+        .content.sidebar-collapsed {
+            grid-template-columns: 0 1fr;
         }
         
         .sidebar {
@@ -55,6 +60,80 @@
             padding: 30px;
             border-right: 1px solid #e0e0e0;
             overflow-y: auto;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        
+        .content.sidebar-collapsed .sidebar {
+            transform: translateX(-100%);
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .sidebar-toggle {
+            position: absolute;
+            left: 10px;
+            top: 10px;
+            z-index: 100;
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            border-radius: 50%;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar-toggle:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .sidebar-toggle-icon {
+            width: 20px;
+            height: 2px;
+            background: #667eea;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar-toggle-icon::before,
+        .sidebar-toggle-icon::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 2px;
+            background: #667eea;
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar-toggle-icon::before {
+            top: -6px;
+        }
+        
+        .sidebar-toggle-icon::after {
+            top: 6px;
+        }
+        
+        .content.sidebar-collapsed .sidebar-toggle {
+            left: 10px;
+        }
+        
+        .content.sidebar-collapsed .sidebar-toggle-icon {
+            background: transparent;
+        }
+        
+        .content.sidebar-collapsed .sidebar-toggle-icon::before {
+            transform: rotate(45deg);
+            top: 0;
+        }
+        
+        .content.sidebar-collapsed .sidebar-toggle-icon::after {
+            transform: rotate(-45deg);
+            top: 0;
         }
         
         .section {
@@ -128,7 +207,7 @@
         }
         
         .image-list {
-            max-height: 300px;
+            max-height: 250px;
             overflow-y: auto;
             border: 1px solid #e0e0e0;
             border-radius: 8px;
@@ -161,17 +240,24 @@
         }
         
         .main-area {
-            padding: 30px;
+            padding: 15px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
+            position: relative;
+            height: 100%;
+            overflow-y: auto;
         }
         
         #canvasContainer {
             position: relative;
-            display: inline-block;
-            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 8px;
+            width: 100%;
+            flex-grow: 1;
         }
         
         #imageCanvas {
@@ -179,46 +265,50 @@
             border-radius: 10px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             cursor: crosshair;
+            width: 100%;
+            height: auto;
         }
         
         .controls {
             display: flex;
             gap: 15px;
             align-items: center;
-            margin-top: 20px;
+            margin: 5px 0;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
         }
         
         .position-display {
-            background: #f8f9fa;
-            padding: 15px 25px;
-            border-radius: 8px;
-            font-family: 'Courier New', monospace;
-            color: #333;
+            display: none;
         }
         
         .prediction-result {
-            margin-top: 30px;
-            padding: 25px;
+            margin: 5px 0;
+            padding: 15px;
             background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
             border-radius: 10px;
             text-align: center;
             display: none;
+            width: 100%;
+            max-width: 600px;
         }
         
         .prediction-result h2 {
             color: #667eea;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
+            font-size: 1.3em;
         }
         
         .prediction-class {
-            font-size: 2em;
+            font-size: 1.8em;
             font-weight: 700;
             color: #333;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
         
         .prediction-confidence {
-            font-size: 1.2em;
+            font-size: 1.1em;
             color: #666;
         }
         
@@ -319,7 +409,11 @@
             <p>Interactive Sentinel-2 Imagery Analysis</p>
         </div>
         
-        <div class="content">
+        <div class="content" id="contentArea">
+            <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
+                <div class="sidebar-toggle-icon"></div>
+            </button>
+            
             <div class="sidebar">
                 <div class="section">
                     <h3>📍 Search Location</h3>
@@ -405,10 +499,11 @@
         const API_URL = 'http://127.0.0.1:8000';
         let currentImage = null;
         let currentImageData = null;
-        let boxX = 480;
-        let boxY = 480;
+        let boxX = 768;  // Center of 1600px width (800 - 32)
+        let boxY = 418;  // Center of 900px height (450 - 32)
         let isDragging = false;
         let canvas, ctx;
+        let sidebarCollapsed = false;
         
         // Initialize dates
         const today = new Date();
@@ -416,6 +511,16 @@
         threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
         document.getElementById('startDate').valueAsDate = threeMonthsAgo;
         document.getElementById('endDate').valueAsDate = today;
+        
+        function toggleSidebar() {
+            sidebarCollapsed = !sidebarCollapsed;
+            const contentArea = document.getElementById('contentArea');
+            if (sidebarCollapsed) {
+                contentArea.classList.add('sidebar-collapsed');
+            } else {
+                contentArea.classList.remove('sidebar-collapsed');
+            }
+        }
         
         function showStatus(message, type = 'info') {
             const status = document.getElementById('statusMessage');
@@ -537,10 +642,6 @@
                 canvas.width = img.width;
                 canvas.height = img.height;
                 
-                // Also set CSS size to prevent browser scaling
-                canvas.style.maxWidth = '100%';
-                canvas.style.height = 'auto';
-                
                 currentImage = img;
                 boxX = Math.min(480, img.width - 64);
                 boxY = Math.min(480, img.height - 64);
@@ -581,8 +682,10 @@
         function setupCanvasEvents() {
             canvas.addEventListener('mousedown', (e) => {
                 const rect = canvas.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const x = (e.clientX - rect.left) * scaleX;
+                const y = (e.clientY - rect.top) * scaleY;
                 
                 // Check if click is inside the box
                 if (x >= boxX && x <= boxX + 64 && y >= boxY && y <= boxY + 64) {
@@ -595,8 +698,10 @@
                 if (!isDragging) return;
                 
                 const rect = canvas.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const x = (e.clientX - rect.left) * scaleX;
+                const y = (e.clientY - rect.top) * scaleY;
                 
                 // Update box position (centered on cursor)
                 boxX = Math.max(0, Math.min(canvas.width - 64, x - 32));
@@ -620,8 +725,10 @@
                 if (isDragging) return;
                 
                 const rect = canvas.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const x = (e.clientX - rect.left) * scaleX;
+                const y = (e.clientY - rect.top) * scaleY;
                 
                 // Center box on click position
                 boxX = Math.max(0, Math.min(canvas.width - 64, x - 32));
