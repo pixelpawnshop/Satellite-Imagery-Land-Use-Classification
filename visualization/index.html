@@ -142,8 +142,8 @@
         
         .sidebar-toggle {
             position: absolute;
-            left: 10px;
-            top: 10px;
+            left: 360px;
+            top: 20px;
             z-index: 100;
             width: 40px;
             height: 40px;
@@ -157,55 +157,22 @@
             justify-content: center;
             cursor: pointer;
             transition: all 0.2s ease;
-        }
-        
-        .sidebar-toggle:hover {
-            border-color: var(--accent-primary);
-            background: var(--bg-secondary);
-        }
-        
-        .sidebar-toggle-icon {
-            width: 20px;
-            height: 2px;
-            background: var(--text-primary);
-            position: relative;
-            transition: all 0.3s ease;
-        }
-        
-        .sidebar-toggle-icon::before,
-        .sidebar-toggle-icon::after {
-            content: '';
-            position: absolute;
-            width: 20px;
-            height: 2px;
-            background: var(--text-primary);
-            transition: all 0.3s ease;
-        }
-        
-        .sidebar-toggle-icon::before {
-            top: -6px;
-        }
-        
-        .sidebar-toggle-icon::after {
-            top: 6px;
+            font-size: 20px;
+            color: var(--text-primary);
         }
         
         .content.sidebar-collapsed .sidebar-toggle {
             left: 10px;
         }
         
-        .content.sidebar-collapsed .sidebar-toggle-icon {
-            background: transparent;
+        .sidebar-toggle:hover {
+            border-color: var(--accent-primary);
+            background: var(--bg-secondary);
+            transform: scale(1.05);
         }
         
-        .content.sidebar-collapsed .sidebar-toggle-icon::before {
-            transform: rotate(45deg);
-            top: 0;
-        }
-        
-        .content.sidebar-collapsed .sidebar-toggle-icon::after {
-            transform: rotate(-45deg);
-            top: 0;
+        .sidebar-toggle-icon {
+            display: none;
         }
         
         .section {
@@ -567,7 +534,7 @@
         
         <div class="content" id="contentArea">
             <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
-                <div class="sidebar-toggle-icon"></div>
+                <span id="toggleArrow">←</span>
             </button>
             
             <div class="sidebar">
@@ -689,10 +656,13 @@
         function toggleSidebar() {
             sidebarCollapsed = !sidebarCollapsed;
             const contentArea = document.getElementById('contentArea');
+            const arrow = document.getElementById('toggleArrow');
             if (sidebarCollapsed) {
                 contentArea.classList.add('sidebar-collapsed');
+                arrow.textContent = '→';
             } else {
                 contentArea.classList.remove('sidebar-collapsed');
+                arrow.textContent = '←';
             }
         }
         
