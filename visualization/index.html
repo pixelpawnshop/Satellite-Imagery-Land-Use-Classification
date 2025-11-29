@@ -378,7 +378,7 @@
             text-align: center;
             display: none;
             width: 100%;
-            max-width: 600px;
+            max-width: 700px;
             transition: background 0.3s ease, border-color 0.3s ease;
         }
         
@@ -399,6 +399,61 @@
         .prediction-confidence {
             font-size: 1em;
             color: var(--text-secondary);
+            margin-bottom: 15px;
+        }
+        
+        .all-probabilities {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border-color);
+            text-align: left;
+        }
+        
+        .all-probabilities h3 {
+            font-size: 0.95em;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .prob-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+            font-size: 0.85em;
+        }
+        
+        .prob-label {
+            width: 120px;
+            font-weight: 500;
+            color: var(--text-primary);
+            flex-shrink: 0;
+        }
+        
+        .prob-bar-container {
+            flex: 1;
+            height: 20px;
+            background: var(--bg-secondary);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 0 8px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .prob-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-hover));
+            transition: width 0.3s ease;
+            border-radius: 2px;
+        }
+        
+        .prob-value {
+            width: 45px;
+            text-align: right;
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.9em;
         }
         
         .status {
@@ -591,6 +646,10 @@
                     <h2>Prediction Result</h2>
                     <div class="prediction-class" id="predictedClass"></div>
                     <div class="prediction-confidence" id="predictedConfidence"></div>
+                    <div class="all-probabilities" id="allProbabilities">
+                        <h3>All Class Probabilities</h3>
+                        <div id="probabilityBars"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -719,7 +778,16 @@
                 const response = await fetch(`${API_URL}/load-sentinel`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({item_id: itemId})
+                    body: JSON.stringify({
+                        item_id: itemId,
+                        min_lon: parseFloat(document.getElementById('minLon').value),
+                        min_lat: parseFloat(document.getElementById('minLat').value),
+                        max_lon: parseFloat(document.getElementById('maxLon').value),
+                        max_lat: parseFloat(document.getElementById('maxLat').value),
+                        start_date: document.getElementById('startDate').value,
+                        end_date: document.getElementById('endDate').value,
+                        max_cloud: parseInt(document.getElementById('maxCloud').value)
+                    })
                 });
                 
                 const data = await response.json();
@@ -886,6 +954,25 @@
                 document.getElementById('predictedClass').textContent = data.predicted_class;
                 document.getElementById('predictedConfidence').textContent = 
                     `Confidence: ${(data.confidence * 100).toFixed(1)}%`;
+                
+                // Display all probabilities as bar charts
+                if (data.all_probabilities) {
+                    const probsArray = Object.entries(data.all_probabilities)
+                        .sort((a, b) => b[1] - a[1]); // Sort by probability descending
+                    
+                    const barsHTML = probsArray.map(([className, prob]) => `
+                        <div class="prob-item">
+                            <div class="prob-label">${className}</div>
+                            <div class="prob-bar-container">
+                                <div class="prob-bar" style="width: ${prob * 100}%"></div>
+                            </div>
+                            <div class="prob-value">${(prob * 100).toFixed(1)}%</div>
+                        </div>
+                    `).join('');
+                    
+                    document.getElementById('probabilityBars').innerHTML = barsHTML;
+                }
+                
                 document.getElementById('predictionResult').style.display = 'block';
                 
                 showStatus('Prediction complete!', 'success');

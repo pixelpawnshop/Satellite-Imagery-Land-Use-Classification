@@ -67,9 +67,14 @@ async def predict(file: UploadFile = File(...)):
             conf, pred = torch.max(probs, 1)
             class_name = CLASS_NAMES[pred.item()]
             confidence = conf.item()
+            
+            # Get all class probabilities
+            all_probs = {CLASS_NAMES[i]: round(probs[0][i].item(), 4) for i in range(len(CLASS_NAMES))}
+            
         return JSONResponse({
             "predicted_class": class_name,
-            "confidence": round(confidence, 4)
+            "confidence": round(confidence, 4),
+            "all_probabilities": all_probs
         })
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=400)
@@ -85,6 +90,13 @@ class SearchRequest(BaseModel):
 
 class LoadImageRequest(BaseModel):
     item_id: str
+    min_lon: float
+    min_lat: float
+    max_lon: float
+    max_lat: float
+    start_date: str
+    end_date: str
+    max_cloud: int = 20
 
 @app.post("/search-sentinel")
 async def search_sentinel(request: SearchRequest):
@@ -120,14 +132,13 @@ async def load_sentinel(request: LoadImageRequest):
     try:
         from sentinel_search import search_sentinel2_images, get_rgb_image_url  # type: ignore
         
-        # Re-search to get the item (in production, you'd cache this)
-        # For now, we'll use a simple approach - search recent images
-        bbox = [13.0, 52.0, 14.0, 53.0]  # Default Berlin area
+        # Re-search using the user's original parameters
+        bbox = [request.min_lon, request.min_lat, request.max_lon, request.max_lat]
         results = search_sentinel2_images(
             bbox,
-            (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d"),
-            datetime.now().strftime("%Y-%m-%d"),
-            20
+            request.start_date,
+            request.end_date,
+            request.max_cloud
         )
         
         # Find the matching item
@@ -239,10 +250,14 @@ async def predict_region(data: dict):
             conf, pred = torch.max(probs, 1)
             class_name = CLASS_NAMES[pred.item()]
             confidence = conf.item()
+            
+            # Get all class probabilities
+            all_probs = {CLASS_NAMES[i]: round(probs[0][i].item(), 4) for i in range(len(CLASS_NAMES))}
         
         return JSONResponse({
             "predicted_class": class_name,
-            "confidence": round(confidence, 4)
+            "confidence": round(confidence, 4),
+            "all_probabilities": all_probs
         })
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=400)
