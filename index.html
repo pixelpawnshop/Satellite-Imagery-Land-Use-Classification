@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EuroSAT Land Use Classifier - Sentinel-2</title>
+    <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f6f8fa;
+            --bg-tertiary: #ffffff;
+            --border-color: #d0d7de;
+            --text-primary: #24292f;
+            --text-secondary: #57606a;
+            --accent-primary: #0969da;
+            --accent-hover: #0550ae;
+            --success-bg: #dafbe1;
+            --success-text: #0f5323;
+            --error-bg: #ffebe9;
+            --error-text: #cf222e;
+            --info-bg: #ddf4ff;
+            --info-text: #0550ae;
+            --canvas-border: #0969da;
+            --shadow: rgba(31, 35, 40, 0.12);
+        }
+        
+        body.dark-theme {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #0d1117;
+            --border-color: #30363d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --accent-primary: #58a6ff;
+            --accent-hover: #79c0ff;
+            --success-bg: #1a3e2e;
+            --success-text: #7ee787;
+            --error-bg: #4c2128;
+            --error-text: #f85149;
+            --info-bg: #0c2d47;
+            --info-text: #79c0ff;
+            --canvas-border: #58a6ff;
+            --shadow: rgba(0, 0, 0, 0.5);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--bg-secondary);
+            min-height: 100vh;
+            padding: 20px;
+            color: var(--text-primary);
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 8px 24px var(--shadow);
+            overflow: hidden;
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+        
+        .header {
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 15px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+        
+        .header-content {
+            flex: 1;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 1.8em;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
+        .header p {
+            font-size: 0.95em;
+            color: var(--text-secondary);
+        }
+        
+        .theme-toggle {
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            font-size: 18px;
+        }
+        
+        .theme-toggle:hover {
+            background: var(--bg-primary);
+            border-color: var(--accent-primary);
+        }
+        
+        .content {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            height: calc(100vh - 100px);
+            position: relative;
+        }
+        
+        .content.sidebar-collapsed {
+            grid-template-columns: 0 1fr;
+        }
+        
+        .sidebar {
+            background: var(--bg-secondary);
+            padding: 30px;
+            border-right: 1px solid var(--border-color);
+            overflow-y: auto;
+            transition: transform 0.3s ease, opacity 0.3s ease, background 0.3s ease;
+        }
+        
+        .content.sidebar-collapsed .sidebar {
+            transform: translateX(-100%);
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .sidebar-toggle {
+            position: absolute;
+            left: 360px;
+            top: 20px;
+            z-index: 100;
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-primary);
+            box-shadow: 0 2px 8px var(--shadow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 20px;
+            color: var(--text-primary);
+        }
+        
+        .content.sidebar-collapsed .sidebar-toggle {
+            left: 10px;
+        }
+        
+        .sidebar-toggle:hover {
+            border-color: var(--accent-primary);
+            background: var(--bg-secondary);
+            transform: scale(1.05);
+        }
+        
+        .sidebar-toggle-icon {
+            display: none;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+        }
+        
+        .section h3 {
+            color: var(--text-primary);
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            transition: border-color 0.2s, background 0.3s ease;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1);
+        }
+        
+        body.dark-theme .form-group input:focus {
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.2);
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        button {
+            width: 100%;
+            padding: 10px 16px;
+            background: var(--accent-primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        
+        button:hover {
+            background: var(--accent-hover);
+        }
+        
+        button:active {
+            transform: scale(0.98);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .image-list {
+            max-height: 250px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-primary);
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+        
+        .image-item {
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        
+        .image-item:hover {
+            background: var(--bg-secondary);
+        }
+        
+        .image-item.selected {
+            background: var(--info-bg);
+            border-left: 3px solid var(--accent-primary);
+        }
+        
+        .image-item-date {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.9em;
+        }
+        
+        .image-item-cloud {
+            font-size: 0.85em;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+        
+        .main-area {
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            position: relative;
+            height: 100%;
+            overflow-y: auto;
+            background: var(--bg-primary);
+            transition: background 0.3s ease;
+        }
+        
+        #canvasContainer {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 8px;
+            width: 100%;
+            flex-grow: 1;
+        }
+        
+        #imageCanvas {
+            border: 2px solid var(--canvas-border);
+            border-radius: 6px;
+            box-shadow: 0 4px 12px var(--shadow);
+            cursor: crosshair;
+            width: 100%;
+            height: auto;
+            transition: border-color 0.3s ease;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin: 5px 0;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+        }
+        
+        .position-display {
+            display: none;
+        }
+        
+        .prediction-result {
+            margin: 5px 0;
+            padding: 15px;
+            background: var(--success-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            text-align: center;
+            display: none;
+            width: 100%;
+            max-width: 700px;
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+        
+        .prediction-result h2 {
+            color: var(--success-text);
+            margin-bottom: 8px;
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+        
+        .prediction-class {
+            font-size: 1.6em;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+        
+        .prediction-confidence {
+            font-size: 1em;
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+        }
+        
+        .all-probabilities {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border-color);
+            text-align: left;
+        }
+        
+        .all-probabilities h3 {
+            font-size: 0.95em;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .prob-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+            font-size: 0.85em;
+        }
+        
+        .prob-label {
+            width: 120px;
+            font-weight: 500;
+            color: var(--text-primary);
+            flex-shrink: 0;
+        }
+        
+        .prob-bar-container {
+            flex: 1;
+            height: 20px;
+            background: var(--bg-secondary);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 0 8px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .prob-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-hover));
+            transition: width 0.3s ease;
+            border-radius: 2px;
+        }
+        
+        .prob-value {
+            width: 45px;
+            text-align: right;
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+        
+        .status {
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            display: none;
+            font-size: 0.9em;
+            border: 1px solid;
+        }
+        
+        .status.info {
+            background: var(--info-bg);
+            color: var(--info-text);
+            border-color: var(--accent-primary);
+            display: block;
+        }
+        
+        .status.success {
+            background: var(--success-bg);
+            color: var(--success-text);
+            border-color: var(--success-text);
+            display: block;
+        }
+        
+        .status.error {
+            background: var(--error-bg);
+            color: var(--error-text);
+            border-color: var(--error-text);
+            display: block;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            text-align: center;
+            color: var(--text-secondary);
+            padding: 60px 20px;
+        }
+        
+        .empty-state-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+        
+        .empty-state h2 {
+            color: var(--text-primary);
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg-primary);
+            opacity: 0.95;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            z-index: 1000;
+        }
+        
+        .loading-overlay.active {
+            display: flex;
+        }
+        
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid var(--border-color);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        .loading-text {
+            font-size: 1.1em;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-content">
+                <h1>🛰️ EuroSAT Land Use Classifier</h1>
+                <p>Interactive Sentinel-2 Imagery Analysis</p>
+            </div>
+            <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
+                <span id="themeIcon">🌙</span>
+            </button>
+        </div>
+        
+        <div class="content" id="contentArea">
+            <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
+                <span id="toggleArrow">←</span>
+            </button>
+            
+            <div class="sidebar">
+                <div class="section">
+                    <h3>📍 Search Location</h3>
+                    <div class="status" id="statusMessage"></div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Min Lon</label>
+                            <input type="number" id="minLon" value="13.0" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label>Max Lon</label>
+                            <input type="number" id="maxLon" value="14.0" step="0.1">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Min Lat</label>
+                            <input type="number" id="minLat" value="52.0" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label>Max Lat</label>
+                            <input type="number" id="maxLat" value="53.0" step="0.1">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Start Date</label>
+                        <input type="date" id="startDate">
+                    </div>
+                    <div class="form-group">
+                        <label>End Date</label>
+                        <input type="date" id="endDate">
+                    </div>
+                    <div class="form-group">
+                        <label>Max Cloud Cover (%)</label>
+                        <input type="number" id="maxCloud" value="10" min="0" max="100">
+                    </div>
+                    <button id="searchBtn" onclick="searchImages()">🔍 Search Images</button>
+                </div>
+                
+                <div class="section">
+                    <h3>📷 Available Images</h3>
+                    <div id="imageList" class="image-list">
+                        <div class="empty-state">
+                            <div>Search for images to get started</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="main-area">
+                <div class="loading-overlay" id="loadingOverlay">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Loading Sentinel-2 Image...</div>
+                </div>
+                
+                <div id="emptyState" class="empty-state">
+                    <div class="empty-state-icon">🗺️</div>
+                    <h2>No Image Selected</h2>
+                    <p>Search for Sentinel-2 images and select one to begin classification</p>
+                </div>
+                
+                <div id="canvasContainer" style="display: none;">
+                    <canvas id="imageCanvas"></canvas>
+                </div>
+                
+                <div id="controls" class="controls" style="display: none;">
+                    <div class="position-display">
+                        Position: <span id="boxPosition">X: 480, Y: 480</span>
+                    </div>
+                    <button id="predictBtn" onclick="predict()">🔍 Predict Land Use</button>
+                </div>
+                
+                <div id="predictionResult" class="prediction-result">
+                    <h2>Prediction Result</h2>
+                    <div class="prediction-class" id="predictedClass"></div>
+                    <div class="prediction-confidence" id="predictedConfidence"></div>
+                    <div class="all-probabilities" id="allProbabilities">
+                        <h3>All Class Probabilities</h3>
+                        <div id="probabilityBars"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API_URL = 'http://127.0.0.1:8000';
+        let currentImage = null;
+        let currentImageData = null;
+        let boxX = 768;  // Center of 1600px width (800 - 32)
+        let boxY = 418;  // Center of 900px height (450 - 32)
+        let isDragging = false;
+        let canvas, ctx;
+        let sidebarCollapsed = false;
+        
+        // Initialize theme
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-theme');
+            document.getElementById('themeIcon').textContent = '☀️';
+        }
+        
+        // Initialize dates
+        const today = new Date();
+        const threeMonthsAgo = new Date(today);
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+        document.getElementById('startDate').valueAsDate = threeMonthsAgo;
+        document.getElementById('endDate').valueAsDate = today;
+        
+        function toggleTheme() {
+            document.body.classList.toggle('dark-theme');
+            const isDark = document.body.classList.contains('dark-theme');
+            document.getElementById('themeIcon').textContent = isDark ? '☀️' : '🌙';
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        }
+        
+        function toggleSidebar() {
+            sidebarCollapsed = !sidebarCollapsed;
+            const contentArea = document.getElementById('contentArea');
+            const arrow = document.getElementById('toggleArrow');
+            if (sidebarCollapsed) {
+                contentArea.classList.add('sidebar-collapsed');
+                arrow.textContent = '→';
+            } else {
+                contentArea.classList.remove('sidebar-collapsed');
+                arrow.textContent = '←';
+            }
+        }
+        
+        function showStatus(message, type = 'info') {
+            const status = document.getElementById('statusMessage');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+        }
+        
+        function hideStatus() {
+            document.getElementById('statusMessage').style.display = 'none';
+        }
+        
+        async function searchImages() {
+            const btn = document.getElementById('searchBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Searching...';
+            showStatus('Searching for Sentinel-2 images...', 'info');
+            
+            const payload = {
+                min_lon: parseFloat(document.getElementById('minLon').value),
+                min_lat: parseFloat(document.getElementById('minLat').value),
+                max_lon: parseFloat(document.getElementById('maxLon').value),
+                max_lat: parseFloat(document.getElementById('maxLat').value),
+                start_date: document.getElementById('startDate').value,
+                end_date: document.getElementById('endDate').value,
+                max_cloud: parseInt(document.getElementById('maxCloud').value)
+            };
+            
+            try {
+                const response = await fetch(`${API_URL}/search-sentinel`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    showStatus(`Error: ${data.error}`, 'error');
+                    return;
+                }
+                
+                displayImageList(data.items);
+                showStatus(`Found ${data.items.length} images!`, 'success');
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🔍 Search Images';
+            }
+        }
+        
+        function displayImageList(items) {
+            const list = document.getElementById('imageList');
+            
+            if (items.length === 0) {
+                list.innerHTML = '<div class="empty-state">No images found</div>';
+                return;
+            }
+            
+            list.innerHTML = items.map((item, idx) => `
+                <div class="image-item" onclick="selectImage('${item.id}', ${idx})">
+                    <div class="image-item-date">📅 ${item.datetime.split('T')[0]}</div>
+                    <div class="image-item-cloud">☁️ ${item.cloud_cover.toFixed(1)}% cloud cover</div>
+                </div>
+            `).join('');
+        }
+        
+        async function selectImage(itemId, idx) {
+            // Update UI
+            document.querySelectorAll('.image-item').forEach((el, i) => {
+                el.classList.toggle('selected', i === idx);
+            });
+            
+            // Show loading overlay
+            document.getElementById('loadingOverlay').classList.add('active');
+            document.getElementById('emptyState').style.display = 'none';
+            showStatus('Loading Sentinel-2 image...', 'info');
+            
+            try {
+                const response = await fetch(`${API_URL}/load-sentinel`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        item_id: itemId,
+                        min_lon: parseFloat(document.getElementById('minLon').value),
+                        min_lat: parseFloat(document.getElementById('minLat').value),
+                        max_lon: parseFloat(document.getElementById('maxLon').value),
+                        max_lat: parseFloat(document.getElementById('maxLat').value),
+                        start_date: document.getElementById('startDate').value,
+                        end_date: document.getElementById('endDate').value,
+                        max_cloud: parseInt(document.getElementById('maxCloud').value)
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    showStatus(`Error: ${data.error}`, 'error');
+                    document.getElementById('loadingOverlay').classList.remove('active');
+                    return;
+                }
+                
+                currentImageData = data;
+                loadImageToCanvas(data.image);
+                showStatus('Image loaded! Drag the red box to select a region.', 'success');
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+                document.getElementById('loadingOverlay').classList.remove('active');
+            }
+        }
+        
+        function loadImageToCanvas(base64Image) {
+            const img = new Image();
+            img.onload = function() {
+                // Hide loading overlay and empty state, show canvas
+                document.getElementById('loadingOverlay').classList.remove('active');
+                document.getElementById('emptyState').style.display = 'none';
+                document.getElementById('canvasContainer').style.display = 'block';
+                document.getElementById('controls').style.display = 'flex';
+                document.getElementById('predictionResult').style.display = 'none';
+                
+                // Setup canvas with ACTUAL image dimensions (no scaling)
+                canvas = document.getElementById('imageCanvas');
+                ctx = canvas.getContext('2d');
+                
+                // Set canvas to actual image size
+                canvas.width = img.width;
+                canvas.height = img.height;
+                
+                currentImage = img;
+                boxX = Math.min(480, img.width - 64);
+                boxY = Math.min(480, img.height - 64);
+                
+                drawCanvas();
+                setupCanvasEvents();
+            };
+            img.src = 'data:image/png;base64,' + base64Image;
+        }
+        
+        function drawCanvas() {
+            if (!currentImage || !canvas) return;
+            
+            // Draw image
+            ctx.drawImage(currentImage, 0, 0);
+            
+            // Draw 64x64 box
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(boxX, boxY, 64, 64);
+            
+            // Draw crosshair at center
+            const centerX = boxX + 32;
+            const centerY = boxY + 32;
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(centerX - 10, centerY);
+            ctx.lineTo(centerX + 10, centerY);
+            ctx.moveTo(centerX, centerY - 10);
+            ctx.lineTo(centerX, centerY + 10);
+            ctx.stroke();
+            
+            // Update position display
+            document.getElementById('boxPosition').textContent = `X: ${boxX}, Y: ${boxY}`;
+        }
+        
+        function setupCanvasEvents() {
+            canvas.addEventListener('mousedown', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const x = (e.clientX - rect.left) * scaleX;
+                const y = (e.clientY - rect.top) * scaleY;
+                
+                // Check if click is inside the box
+                if (x >= boxX && x <= boxX + 64 && y >= boxY && y <= boxY + 64) {
+                    isDragging = true;
+                    canvas.style.cursor = 'grabbing';
+                }
+            });
+            
+            canvas.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const x = (e.clientX - rect.left) * scaleX;
+                const y = (e.clientY - rect.top) * scaleY;
+                
+                // Update box position (centered on cursor)
+                boxX = Math.max(0, Math.min(canvas.width - 64, x - 32));
+                boxY = Math.max(0, Math.min(canvas.height - 64, y - 32));
+                
+                drawCanvas();
+            });
+            
+            canvas.addEventListener('mouseup', () => {
+                isDragging = false;
+                canvas.style.cursor = 'crosshair';
+            });
+            
+            canvas.addEventListener('mouseleave', () => {
+                isDragging = false;
+                canvas.style.cursor = 'crosshair';
+            });
+            
+            // Click to position (if not dragging)
+            canvas.addEventListener('click', (e) => {
+                if (isDragging) return;
+                
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const x = (e.clientX - rect.left) * scaleX;
+                const y = (e.clientY - rect.top) * scaleY;
+                
+                // Center box on click position
+                boxX = Math.max(0, Math.min(canvas.width - 64, x - 32));
+                boxY = Math.max(0, Math.min(canvas.height - 64, y - 32));
+                
+                drawCanvas();
+            });
+        }
+        
+        async function predict() {
+            if (!currentImageData) {
+                showStatus('No image loaded!', 'error');
+                return;
+            }
+            
+            const btn = document.getElementById('predictBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Predicting...';
+            showStatus('Analyzing land use...', 'info');
+            
+            try {
+                const response = await fetch(`${API_URL}/predict-region`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        image: currentImageData.image,
+                        x: boxX,
+                        y: boxY
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    showStatus(`Error: ${data.error}`, 'error');
+                    return;
+                }
+                
+                // Display prediction
+                document.getElementById('predictedClass').textContent = data.predicted_class;
+                document.getElementById('predictedConfidence').textContent = 
+                    `Confidence: ${(data.confidence * 100).toFixed(1)}%`;
+                
+                // Display all probabilities as bar charts
+                if (data.all_probabilities) {
+                    const probsArray = Object.entries(data.all_probabilities)
+                        .sort((a, b) => b[1] - a[1]); // Sort by probability descending
+                    
+                    const barsHTML = probsArray.map(([className, prob]) => `
+                        <div class="prob-item">
+                            <div class="prob-label">${className}</div>
+                            <div class="prob-bar-container">
+                                <div class="prob-bar" style="width: ${prob * 100}%"></div>
+                            </div>
+                            <div class="prob-value">${(prob * 100).toFixed(1)}%</div>
+                        </div>
+                    `).join('');
+                    
+                    document.getElementById('probabilityBars').innerHTML = barsHTML;
+                }
+                
+                document.getElementById('predictionResult').style.display = 'block';
+                
+                showStatus('Prediction complete!', 'success');
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🔍 Predict Land Use';
+            }
+        }
+    </script>
+</body>
+</html>
