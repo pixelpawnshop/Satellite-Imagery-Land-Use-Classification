@@ -518,9 +518,151 @@
             color: var(--text-primary);
             font-weight: 600;
         }
+        
+        .welcome-popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .welcome-popup.hidden {
+            display: none;
+        }
+        
+        .welcome-content {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 500px;
+            position: relative;
+            box-shadow: 0 8px 32px var(--shadow);
+            animation: slideIn 0.3s ease;
+        }
+        
+        .welcome-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 30px;
+            height: 30px;
+            border: none;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: var(--text-primary);
+            transition: all 0.2s ease;
+        }
+        
+        .welcome-close:hover {
+            background: var(--error-bg);
+            color: var(--error-text);
+            transform: scale(1.1);
+        }
+        
+        .welcome-content h2 {
+            color: var(--text-primary);
+            margin-bottom: 15px;
+            font-size: 1.5em;
+            font-weight: 600;
+        }
+        
+        .welcome-content p {
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        
+        .welcome-steps {
+            list-style: none;
+            padding: 0;
+            margin: 20px 0;
+        }
+        
+        .welcome-steps li {
+            padding: 10px 15px;
+            background: var(--bg-secondary);
+            border-left: 3px solid var(--accent-primary);
+            margin-bottom: 10px;
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 0.95em;
+        }
+        
+        .welcome-steps li strong {
+            color: var(--accent-primary);
+            margin-right: 8px;
+        }
+        
+        .welcome-button {
+            width: 100%;
+            padding: 12px 20px;
+            background: var(--accent-primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            margin-top: 10px;
+        }
+        
+        .welcome-button:hover {
+            background: var(--accent-hover);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateY(-30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
     </style>
 </head>
 <body>
+    <div class="welcome-popup" id="welcomePopup" onclick="closePopupOnBackdrop(event)">
+        <div class="welcome-content" onclick="event.stopPropagation()">
+            <button class="welcome-close" onclick="closeWelcomePopup()">✕</button>
+            <h2>🛰️ Welcome to EuroSAT Land Use Classifier</h2>
+            <p>Analyze satellite imagery using deep learning to classify land use from Sentinel-2 images.</p>
+            
+            <h3 style="font-size: 1.1em; color: var(--text-primary); margin-bottom: 10px;">How to use:</h3>
+            <ul class="welcome-steps">
+                <li><strong>Step 1:</strong> Configure search parameters and click "Search Images" to find Sentinel-2 imagery</li>
+                <li><strong>Step 2:</strong> Select an image from the list that appears</li>
+                <li><strong>Step 3:</strong> Move the red 64×64 box to your area of interest in the image</li>
+                <li><strong>Step 4:</strong> Click "Predict Land Use" to get classification results</li>
+            </ul>
+            
+            <p style="font-size: 0.85em; color: var(--text-secondary); margin-top: 15px; padding: 10px; background: var(--info-bg); border-radius: 6px; border-left: 3px solid var(--accent-primary);">
+                ⚠️ <strong>Note:</strong> The backend runs on a free Render tier. If inactive, it may take up to 1 minute to start up on first request.
+            </p>
+            
+            <button class="welcome-button" onclick="closeWelcomePopup()">Get Started 🚀</button>
+        </div>
+    </div>
     <div class="container">
         <div class="header">
             <div class="header-content">
@@ -646,6 +788,16 @@
         document.getElementById('startDate').valueAsDate = threeMonthsAgo;
         document.getElementById('endDate').valueAsDate = today;
         
+        function closeWelcomePopup() {
+            document.getElementById('welcomePopup').classList.add('hidden');
+        }
+        
+        function closePopupOnBackdrop(event) {
+            if (event.target === document.getElementById('welcomePopup')) {
+                closeWelcomePopup();
+            }
+        }
+        
         function toggleTheme() {
             document.body.classList.toggle('dark-theme');
             const isDark = document.body.classList.contains('dark-theme');
@@ -694,11 +846,19 @@
             };
             
             try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => {
+                    showStatus('⏳ Backend is waking up (free tier)... This may take up to 1 minute on first request.', 'info');
+                }, 5000);
+                
                 const response = await fetch(`${API_URL}/search-sentinel`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
                 });
+                
+                clearTimeout(timeoutId);
                 
                 const data = await response.json();
                 
@@ -710,7 +870,11 @@
                 displayImageList(data.items);
                 showStatus(`Found ${data.items.length} images!`, 'success');
             } catch (error) {
-                showStatus(`Error: ${error.message}`, 'error');
+                if (error.name === 'AbortError') {
+                    showStatus('Request timed out. Backend may be starting up. Please try again.', 'error');
+                } else {
+                    showStatus(`Error: ${error.message}`, 'error');
+                }
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '🔍 Search Images';
