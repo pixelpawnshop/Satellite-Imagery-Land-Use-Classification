@@ -531,6 +531,8 @@
             justify-content: center;
             z-index: 2000;
             animation: fadeIn 0.3s ease;
+            padding: 20px;
+            overflow-y: auto;
         }
         
         .welcome-popup.hidden {
@@ -543,9 +545,12 @@
             border-radius: 12px;
             padding: 30px;
             max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
             position: relative;
             box-shadow: 0 8px 32px var(--shadow);
             animation: slideIn 0.3s ease;
+            margin: auto;
         }
         
         .welcome-close {
