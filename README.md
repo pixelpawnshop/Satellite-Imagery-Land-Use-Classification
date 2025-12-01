@@ -6,7 +6,7 @@
 
 This is an interactive web application for classifying land use from satellite imagery using deep learning. The app allows users to search for Sentinel-2 satellite images, select regions of interest, and get real-time land use predictions powered by an EfficientNetB0 model trained on the EuroSAT dataset.
 
-https://github.com/user-attachments/assets/37561b88-4e58-40f2-8f42-29e699713c52
+https://github.com/user-attachments/assets/9f2b9ec1-747a-40e7-bdcb-95d1950d11db
 
 ---
 
