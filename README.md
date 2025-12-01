@@ -23,6 +23,8 @@ This project classifies land use from satellite imagery using deep learning. It 
 
 **Goal:** Deploy a public-facing service so users can access and test land use predictions on satellite images.
 
+https://github.com/user-attachments/assets/f24cf186-e32e-44d1-9c94-a0917dbac0f0
+
 ---
 
 ## Features
