@@ -15,11 +15,10 @@
 
 
 This project demonstrates MLOps best practices for satellite imagery land use classification using transfer learning and PyTorch.
-[...existing code...]
 # EuroSAT Land Use Classification
 
 ## Overview
-This project classifies land use from satellite imagery using deep learning. It leverages the EuroSAT dataset and EfficientNetB0 for robust multi-class classification. Users can upload images and get predictions via a FastAPI backend and interactive web frontends (HTML/JS).
+This is an interactive web application for classifying land use from satellite imagery using deep learning. The app allows users to search for Sentinel-2 satellite images, select regions of interest, and get real-time land use predictions powered by an EfficientNetB0 model trained on the EuroSAT dataset.
 
 **Goal:** Deploy a public-facing service so users can access and test land use predictions on satellite images.
 
